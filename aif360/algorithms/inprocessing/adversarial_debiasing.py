@@ -97,7 +97,7 @@ class AdversarialDebiasing(Transformer):
 
         return pred_label, pred_logit
 
-    def _adversary_model(self, pred_logits, true_labels):
+    def _adversary_model_equal_odds(self, pred_logits, true_labels):
         """Compute the adversary predictions for the protected attribute.
         """
         with tf.variable_scope("adversary_model"):
@@ -154,7 +154,7 @@ class AdversarialDebiasing(Transformer):
 
             if self.debias:
                 # Obtain adversary predictions and adversary loss
-                pred_protected_attributes_labels, pred_protected_attributes_logits = self._adversary_model(pred_logits, self.true_labels_ph)
+                pred_protected_attributes_labels, pred_protected_attributes_logits = self._adversary_model_equal_odds(pred_logits, self.true_labels_ph)
                 pred_protected_attributes_loss = tf.reduce_mean(
                     tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits))
 
