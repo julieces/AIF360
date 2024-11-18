@@ -113,6 +113,22 @@ class AdversarialDebiasing(Transformer):
 
         return pred_protected_attribute_label, pred_protected_attribute_logit
 
+    def _adversary_model_parity(self, pred_logits):
+        """Compute the adversary predictions for the protected attribute.
+        """
+        with tf.variable_scope("adversary_model"):
+            c = tf.get_variable('c', initializer=tf.constant(1.0))
+            s = tf.sigmoid((1 + tf.abs(c)) * pred_logits)
+
+            W2 = tf.get_variable('W2', [3, 1],
+                                 initializer=tf.initializers.glorot_uniform(seed=self.seed4))
+            b2 = tf.Variable(tf.zeros(shape=[1]), name='b2')
+
+            pred_protected_attribute_logit = tf.matmul(s, W2) + b2
+            pred_protected_attribute_label = tf.sigmoid(pred_protected_attribute_logit)
+
+        return pred_protected_attribute_label, pred_protected_attribute_logit
+
     def fit(self, dataset):
         """Compute the model parameters of the fair classifier using gradient
         descent.
@@ -153,10 +169,17 @@ class AdversarialDebiasing(Transformer):
             pred_labels_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=self.true_labels_ph, logits=pred_logits))
 
             if self.debias:
-                # Obtain adversary predictions and adversary loss
-                pred_protected_attributes_labels, pred_protected_attributes_logits = self._adversary_model_equal_odds(pred_logits, self.true_labels_ph)
-                pred_protected_attributes_loss = tf.reduce_mean(
-                    tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits))
+                # Obtain adversary predictions and adversary loss for equalized odds
+                pred_protected_attributes_labels_eo, pred_protected_attributes_logits_eo = self._adversary_model_equal_odds(pred_logits, self.true_labels_ph)
+                pred_protected_attributes_loss_eo = tf.reduce_mean(
+                    tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_eo))
+
+            # Obtain adversary predictions and adversary loss for demographic parity
+                pred_protected_attributes_labels_parity, pred_protected_attributes_logits_parity = self._adversary_model_parity(pred_logits, self.true_labels_ph)
+                pred_protected_attributes_loss_parity = tf.reduce_mean(
+                    tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_parity))
+
+            pred_protected_attributes_loss = pred_protected_attributes_loss_eo + pred_protected_attributes_loss_parity
 
             # Setup optimizers with learning rates
             global_step = tf.Variable(0, trainable=False)
