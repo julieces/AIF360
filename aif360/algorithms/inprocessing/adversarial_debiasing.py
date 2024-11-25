@@ -97,34 +97,42 @@ class AdversarialDebiasing(Transformer):
 
         return pred_label, pred_logit
 
-    def _adversary_model_equal_odds(self, pred_logits, true_labels):
+    def _adversary_model_fpr(self, pred_logits, true_labels):
         """Compute the adversary predictions for the protected attribute.
         """
         with tf.variable_scope("adversary_model"):
+            # restrict to real outcome is 0 for false positive
+            pred_logits_fp = pred_logits[true_labels == 0]
+            true_labels_fp = true_labels[true_labels == 0]
+            
             c = tf.get_variable('c', initializer=tf.constant(1.0))
-            s = tf.sigmoid((1 + tf.abs(c)) * pred_logits)
+            s = tf.sigmoid((1 + tf.abs(c)) * pred_logits_fp)
 
             W2 = tf.get_variable('W2', [3, 1],
                                  initializer=tf.initializers.glorot_uniform(seed=self.seed4))
             b2 = tf.Variable(tf.zeros(shape=[1]), name='b2')
 
-            pred_protected_attribute_logit = tf.matmul(tf.concat([s, s * true_labels, s * (1.0 - true_labels)], axis=1), W2) + b2
+            pred_protected_attribute_logit = tf.matmul(tf.concat([s, s * true_labels_fp, s * (1.0 - true_labels_fp)], axis=1), W2) + b2
             pred_protected_attribute_label = tf.sigmoid(pred_protected_attribute_logit)
 
         return pred_protected_attribute_label, pred_protected_attribute_logit
 
-    def _adversary_model_parity(self, pred_logits):
+    def _adversary_model_tpr(self, pred_logits, true_labels):
         """Compute the adversary predictions for the protected attribute.
         """
         with tf.variable_scope("adversary_model"):
+            # restrict to real outcome is 1 for true positive
+            pred_logits_tp = pred_logits[true_labels == 1]
+            true_labels_tp = true_labels[true_labels == 1]
+            
             c = tf.get_variable('c', initializer=tf.constant(1.0))
-            s = tf.sigmoid((1 + tf.abs(c)) * pred_logits)
+            s = tf.sigmoid((1 + tf.abs(c)) * pred_logits_tp)
 
             W2 = tf.get_variable('W2', [3, 1],
                                  initializer=tf.initializers.glorot_uniform(seed=self.seed4))
             b2 = tf.Variable(tf.zeros(shape=[1]), name='b2')
 
-            pred_protected_attribute_logit = tf.matmul(s, W2) + b2
+            pred_protected_attribute_logit = tf.matmul(tf.concat([s, s * true_labels_tp, s * (1.0 - true_labels_tp)], axis=1), W2) + b2
             pred_protected_attribute_label = tf.sigmoid(pred_protected_attribute_logit)
 
         return pred_protected_attribute_label, pred_protected_attribute_logit
@@ -169,17 +177,17 @@ class AdversarialDebiasing(Transformer):
             pred_labels_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=self.true_labels_ph, logits=pred_logits))
 
             if self.debias:
-                # Obtain adversary predictions and adversary loss for equalized odds
-                pred_protected_attributes_labels_eo, pred_protected_attributes_logits_eo = self._adversary_model_equal_odds(pred_logits, self.true_labels_ph)
-                pred_protected_attributes_loss_eo = tf.reduce_mean(
+                # Obtain adversary predictions and adversary loss for false positive rate
+                pred_protected_attributes_labels_fpr, pred_protected_attributes_logits_fpr = self._adversary_model_fpr(pred_logits, self.true_labels_ph)
+                pred_protected_attributes_loss_fpr = tf.reduce_mean(
                     tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_eo))
 
-            # Obtain adversary predictions and adversary loss for demographic parity
-                pred_protected_attributes_labels_parity, pred_protected_attributes_logits_parity = self._adversary_model_parity(pred_logits, self.true_labels_ph)
-                pred_protected_attributes_loss_parity = tf.reduce_mean(
+            # Obtain adversary predictions and adversary loss for true positive rate
+                pred_protected_attributes_labels_tpr, pred_protected_attributes_logits_tpr = self._adversary_model_tpr(pred_logits, self.true_labels_ph)
+                pred_protected_attributes_loss_tpr = tf.reduce_mean(
                     tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_parity))
 
-            pred_protected_attributes_loss = pred_protected_attributes_loss_eo + pred_protected_attributes_loss_parity
+            pred_protected_attributes_loss = pred_protected_attributes_loss_fpr + pred_protected_attributes_loss_tpr
 
             # Setup optimizers with learning rates
             global_step = tf.Variable(0, trainable=False)
