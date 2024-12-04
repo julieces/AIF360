@@ -173,18 +173,27 @@ class AdversarialDebiasing(Transformer):
             self.pred_labels, pred_logits = self._classifier_model(self.features_ph, self.features_dim, self.keep_prob)
             pred_labels_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=self.true_labels_ph, logits=pred_logits))
 
+             """
+            if self.debias:
+                # Obtain adversary predictions and adversary loss
+                pred_protected_attributes_labels, pred_protected_attributes_logits = self._adversary_model(pred_logits, self.true_labels_ph)
+                pred_protected_attributes_loss = tf.reduce_mean(
+                    tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits))
+
+            """
+
             if self.debias:
                 # Obtain adversary predictions and adversary loss for false positive rate
-                pred_protected_attributes_labels_fpr, pred_protected_attributes_logits_fpr, loss_weight_fpr = self._adversary_model_fpr(pred_logits, self.true_labels_ph)
-                pred_protected_attributes_loss_fpr = tf.reduce_mean(
-                    tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_eo))
-
-                # Obtain adversary predictions and adversary loss for true positive rate
-                pred_protected_attributes_labels_tpr, pred_protected_attributes_logits_tpr, loss_weight_tpr = self._adversary_model_tpr(pred_logits, self.true_labels_ph)
-                pred_protected_attributes_loss_tpr = tf.reduce_mean(
+                pred_protected_attributes_labels_parity, pred_protected_attributes_logits_parity = self._adversary_model_parity(pred_logits, self.true_labels_ph)
+                pred_protected_attributes_loss_parity = tf.reduce_mean(
                     tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_parity))
 
-            pred_protected_attributes_loss = pred_protected_attributes_loss_fpr + pred_protected_attributes_loss_tpr
+                # Obtain adversary predictions and adversary loss for true positive rate
+                pred_protected_attributes_labels_eo, pred_protected_attributes_logits_eo = self._adversary_model_equal_opportunity(pred_logits, self.true_labels_ph)
+                pred_protected_attributes_loss_eo = tf.reduce_mean(
+                    tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_eo))
+
+            pred_protected_attributes_loss = pred_protected_attributes_loss_parity + pred_protected_attributes_loss_eo
 
             # Setup optimizers with learning rates
             global_step = tf.Variable(0, trainable=False)
