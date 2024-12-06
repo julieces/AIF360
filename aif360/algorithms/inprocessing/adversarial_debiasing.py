@@ -95,7 +95,7 @@ class AdversarialDebiasing(Transformer):
             pred_logit = tf.matmul(h1, W2) + b2
             pred_label = tf.sigmoid(pred_logit)
 
-        return pred_label, pred_logits
+        return pred_label, pred_logit
 
     def _adversary_model_parity(self, pred_logits):
         """Compute the adversary predictions for the protected attribute.
@@ -103,7 +103,7 @@ class AdversarialDebiasing(Transformer):
         with tf.variable_scope("adversary_model"):
             
             c = tf.get_variable('c', initializer=tf.constant(1.0))
-            s = tf.sigmoid((1 + tf.abs(c)) * pred_logits_tp)
+            s = tf.sigmoid((1 + tf.abs(c)) * pred_logits)
 
             W2 = tf.get_variable('W2', [3, 1],
                                  initializer=tf.initializers.glorot_uniform(seed=self.seed4))
@@ -195,7 +195,7 @@ class AdversarialDebiasing(Transformer):
                 pred_protected_attributes_loss_eo = tf.reduce_mean(
                     tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_eo))
 
-                pred_protected_attributes_loss = (loss_weight * pred_protected_attributes_loss_eo) + pred_protected_attributes_loss_parity
+                # pred_protected_attributes_loss = (loss_weight * pred_protected_attributes_loss_eo) + pred_protected_attributes_loss_parity
 
             # Setup optimizers with learning rates
             global_step = tf.Variable(0, trainable=False)
