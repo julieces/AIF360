@@ -193,7 +193,7 @@ class AdversarialDebiasing(Transformer):
                 pred_protected_attributes_loss_eo = tf.reduce_mean(
                     tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_eo))
 
-            pred_protected_attributes_loss = pred_protected_attributes_loss_parity + pred_protected_attributes_loss_eo
+                pred_protected_attributes_loss = pred_protected_attributes_loss_parity + pred_protected_attributes_loss_eo
 
             # Setup optimizers with learning rates
             global_step = tf.Variable(0, trainable=False)
