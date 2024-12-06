@@ -211,7 +211,7 @@ class AdversarialDebiasing(Transformer):
                 pred_protected_attributes_loss_tpr = tf.reduce_mean(
                     tf.nn.sigmoid_cross_entropy_with_logits(labels=self.protected_attributes_ph, logits=pred_protected_attributes_logits_parity))
 
-            pred_protected_attributes_loss = (loss_weight_fpr*pred_protected_attributes_loss_fpr) + (loss_weight_tpr*pred_protected_attributes_loss_tpr)
+                pred_protected_attributes_loss = (loss_weight_fpr*pred_protected_attributes_loss_fpr) (loss_weight_tpr*pred_protected_attributes_loss_tpr)
 
             #     # Obtain adversary predictions and adversary loss for true positive rate
             #     pred_protected_attributes_labels_eo, pred_protected_attributes_logits_eo = self._adversary_model_equalized_odds(pred_logits, self.true_labels_ph)
